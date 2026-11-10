@@ -1,0 +1,15 @@
+#!/usr/bin/env php
+<?php
+
+use Symfony\Component\Console\Input\ArgvInput;
+
+define('LARAVEL_START', microtime(true));
+require __DIR__.'/vendor/autoload.php';
+$app = require_once __DIR__.'/bootstrap/app.php';
+
+if (PHP_OS_FAMILY === 'Windows' && in_array('serve', $_SERVER['argv'] ?? [], true) && ! in_array('--no-reload', $_SERVER['argv'] ?? [], true)) {
+    $_SERVER['argv'][] = '--no-reload';
+}
+
+$status = $app->handleCommand(new ArgvInput);
+exit($status);
