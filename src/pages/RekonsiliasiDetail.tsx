@@ -82,9 +82,10 @@ export default function RekonsiliasiDetail() {
 
     Promise.all(codes.map(async (code) => {
       try {
-        const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
         const response = await axios.post<DetectedCodeDetail>("/rekonsiliasi/lookup-detail", { code }, {
-          headers: { Accept: "application/json", ...(csrf ? { "X-CSRF-TOKEN": csrf } : {}) },
+          headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
+          withCredentials: true,
+          withXSRFToken: true,
         });
         return response.data;
       } catch (error) {

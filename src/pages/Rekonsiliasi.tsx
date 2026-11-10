@@ -54,7 +54,11 @@ export default function Rekonsiliasi() {
       const [result] = await Promise.all([parseBcaFile(file, Number(year), Number(month)), new Promise((r) => setTimeout(r, 900))]);
       const existing = recs.find((r) => r.month === Number(month) && r.year === Number(year));
       const detected = result.transactions.filter((t) => t.keywords.length).length;
-      router.post("/rekonsiliasi", { month: Number(month), year: Number(year), file, transactions: result.transactions }, {
+      const transactions = result.transactions.map((transaction) => ({
+        ...transaction,
+        keywords: transaction.keywords.map((keyword) => ({ ...keyword })),
+      }));
+      router.post("/rekonsiliasi", { month: Number(month), year: Number(year), file, transactions }, {
         forceFormData: true,
         onSuccess: () => { toast.success(existing ? "Rekonsiliasi diperbarui" : "File berhasil dibaca", `${result.transactions.length} transaksi terbaca, ${detected} terdeteksi kata kunci.`); setOpen(false); },
         onError: (serverErrors) => { const message = Object.values(serverErrors)[0] ?? "Data rekonsiliasi tidak valid"; setErrors({ f: String(message) }); toast.error("Gagal menyimpan file", String(message)); },
