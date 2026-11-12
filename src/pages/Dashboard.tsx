@@ -96,8 +96,8 @@ export default function Dashboard() {
     const sorted = [...recs].sort((a, b) => a.year - b.year || a.month - b.month).slice(-6);
     const bars = sorted.map((r) => ({
       label: `${MONTHS_SHORT[r.month - 1]} ${String(r.year).slice(2)}`,
-      a: r.transactions.filter((t) => t.type === "DB").reduce((s, t) => s + t.amount, 0),
-      b: r.transactions.filter((t) => t.type === "CR").reduce((s, t) => s + t.amount, 0),
+      a: r.transactions.filter((t) => t.type === "CR").reduce((s, t) => s + t.amount, 0),
+      b: r.transactions.filter((t) => t.type === "DB").reduce((s, t) => s + t.amount, 0),
     }));
 
     return { txs, detected, debit, credit, refTotal, kw, bars, sorted };
@@ -126,7 +126,7 @@ export default function Dashboard() {
         <StatCard
           featured
           label="Total Pengeluaran"
-          value={stats.debit}
+          value={stats.credit}
           format={formatRupiah}
           icon="arrow-small-up"
           tone=""
@@ -134,7 +134,7 @@ export default function Dashboard() {
         />
         <StatCard
           label="Total Pemasukan"
-          value={stats.credit}
+          value={stats.debit}
           format={formatRupiah}
           icon="arrow-small-down"
           tone="from-emerald-500 to-teal-400 shadow-emerald-500/30"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "../../utils/cn";
 import { Icon } from "./Icon";
 
@@ -34,7 +34,7 @@ interface TextInputProps {
   label?: string;
   placeholder?: string;
   icon?: string;
-  type?: "text" | "password";
+  type?: "text" | "password" | "date";
   error?: string;
   hint?: string;
   autoFocus?: boolean;
@@ -73,7 +73,7 @@ export function TextInput({
         )}
         <input
           value={value}
-          type={isPwd && !show ? "password" : "text"}
+          type={type === "date" ? "date" : isPwd && !show ? "password" : "text"}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onEnter?.()}
           placeholder={placeholder}
@@ -135,10 +135,15 @@ interface MoneyInputProps {
   label?: string;
   placeholder?: string;
   error?: string;
+  allowDecimal?: boolean;
 }
 
-export function MoneyInput({ value, onChange, label, placeholder, error }: MoneyInputProps) {
-  const display = value === null ? "" : new Intl.NumberFormat("id-ID").format(value);
+export function MoneyInput({ value, onChange, label, placeholder, error, allowDecimal = false }: MoneyInputProps) {
+  const [decimalText, setDecimalText] = useState("");
+  useEffect(() => {
+    if (allowDecimal) setDecimalText(value === null ? "" : new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(value));
+  }, [value, allowDecimal]);
+  const display = allowDecimal ? decimalText : value === null ? "" : new Intl.NumberFormat("id-ID").format(value);
   return (
     <FieldShell label={label} error={error}>
       <div className="group relative">
@@ -150,8 +155,58 @@ export function MoneyInput({ value, onChange, label, placeholder, error }: Money
           value={display}
           placeholder={placeholder}
           onChange={(e) => {
-            const digits = e.target.value.replace(/\D/g, "").slice(0, 15);
-            onChange(digits ? Number(digits) : null);
+            const raw = e.target.value.trim();
+            if (!raw) {
+              onChange(null);
+              return;
+            }
+            if (!allowDecimal) {
+              const digits = raw.replace(/\D/g, "").slice(0, 15);
+              onChange(digits ? Number(digits) : null);
+              return;
+            }
+            let normalized = raw.replace(/[^\d.,]/g, "");
+            if (/[.,]$/.test(normalized)) {
+              setDecimalText(raw);
+              return;
+            }
+            const comma = normalized.lastIndexOf(",");
+            const dot = normalized.lastIndexOf(".");
+            if (comma >= 0 && dot >= 0) {
+              const decimal = comma > dot ? "," : ".";
+              const thousands = decimal === "," ? "." : ",";
+              normalized = normalized.split(thousands).join("").replace(decimal, ".");
+            } else if (comma >= 0) {
+              normalized = normalized.replace(/\./g, "").replace(",", ".");
+            } else if (dot >= 0 && normalized.length - dot - 1 !== 2) {
+              normalized = normalized.replace(/\./g, "");
+            }
+            const parsed = Number(normalized);
+            onChange(Number.isFinite(parsed) ? parsed : null);
+            setDecimalText(raw);
+          }}
+          onBlur={() => {
+            if (!allowDecimal) return;
+            const normalized = decimalText.replace(/[.,]$/, "");
+            if (!normalized) {
+              onChange(null);
+              setDecimalText("");
+              return;
+            }
+            const comma = normalized.lastIndexOf(",");
+            const dot = normalized.lastIndexOf(".");
+            let parsed = normalized;
+            if (comma >= 0 && dot >= 0) {
+              const decimal = comma > dot ? "," : ".";
+              parsed = parsed.split(decimal === "," ? "." : ",").join("").replace(decimal, ".");
+            } else if (comma >= 0) {
+              parsed = parsed.replace(/\./g, "").replace(",", ".");
+            } else if (dot >= 0 && parsed.length - dot - 1 !== 2) {
+              parsed = parsed.replace(/\./g, "");
+            }
+            const number = Number(parsed);
+            if (Number.isFinite(number)) onChange(number);
+            setDecimalText(Number.isFinite(number) ? new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(number) : "");
           }}
           className={cn(
             "h-12 w-full rounded-xl border bg-white/80 pr-4 pl-11 text-sm font-bold text-slate-800 transition-all duration-300 outline-none placeholder:font-normal placeholder:text-slate-400",

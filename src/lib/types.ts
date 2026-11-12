@@ -10,6 +10,7 @@ export interface Keyword {
 
 export interface Transaction {
   id: string;
+  rowNumber?: number | null;
   date: string; // ISO yyyy-mm-dd
   description: string;
   branch: string;
@@ -17,6 +18,18 @@ export interface Transaction {
   type: "DB" | "CR";
   balance: number | null;
   keywords: Keyword[];
+  inv?: string | null;
+  tl?: string | null;
+  rfq?: string | null;
+  pr?: string | null;
+  po?: string | null;
+  suratNo?: string | null;
+  title?: string | null;
+  note?: string | null;
+  debit?: number | null;
+  credit?: number | null;
+  transactionLabel?: string | null;
+  reimburse?: string | null;
 }
 
 export interface Reconciliation {
@@ -25,6 +38,10 @@ export interface Reconciliation {
   year: number;
   fileName: string;
   uploadedAt: string;
+  openingBalance?: number | null;
+  balanceShortage?: number | null;
+  updatedBalance?: number | null;
+  pendingReimburse?: number | null;
   transactions: Transaction[];
 }
 

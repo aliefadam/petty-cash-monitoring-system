@@ -16,6 +16,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('rekonsiliasi')->name('reconciliations.')->group(function () {
         Route::get('/', [ReconciliationController::class, 'index'])->name('index');
         Route::post('/', [ReconciliationController::class, 'store'])->name('store');
+        Route::post('/transactions', [ReconciliationController::class, 'addMonitoringTransaction'])->name('transactions.add');
         Route::post('/lookup-detail', [ReconciliationController::class, 'lookupDetail'])->name('lookup-detail');
         Route::get('/{reconciliation}', [ReconciliationController::class, 'show'])->whereNumber('reconciliation')->name('show');
         Route::put('/{reconciliation}/transactions', [ReconciliationController::class, 'transactions'])->whereNumber('reconciliation')->name('transactions');

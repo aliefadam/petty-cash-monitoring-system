@@ -190,6 +190,111 @@ export interface ParseResult {
   sheetName: string;
 }
 
+export interface MonitoringSummary {
+  openingBalance: number | null;
+  balanceShortage: number | null;
+  updatedBalance: number | null;
+  pendingReimburse: number | null;
+}
+
+export interface MonitoringParseResult extends ParseResult {
+  summary: MonitoringSummary;
+}
+
+const cellText = (value: Cell) => String(value ?? "").trim();
+
+function summaryValue(rows: Cell[][], label: string): number | null {
+  for (const row of rows.slice(0, 2)) {
+    const index = row.findIndex((value) => norm(value) === label.toLowerCase());
+    if (index >= 0) return parseAmount(row[index + 1]).value;
+  }
+  return null;
+}
+
+export async function parseMonitoringFile(file: File): Promise<MonitoringParseResult> {
+  const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: false });
+  for (const sheetName of workbook.SheetNames) {
+    const rows = XLSX.utils.sheet_to_json<Cell[]>(workbook.Sheets[sheetName], {
+      header: 1,
+      raw: true,
+      defval: "",
+      blankrows: false,
+    });
+    const headerIndex = rows.findIndex((row) => {
+      const headers = row.map(norm);
+      return headers.includes("tgltransaksi") && headers.includes("debit") && headers.includes("kredit") && headers.includes("saldo");
+    });
+    if (headerIndex < 0) continue;
+
+    const header = rows[headerIndex].map(norm);
+    const col = (name: string) => header.indexOf(name);
+    const index = {
+      no: col("no"), date: col("tgltransaksi"), inv: col("inv"), tl: col("tl"), rfq: col("rfq"),
+      pr: col("pr"), po: col("po"), suratNo: col("surat no"), title: col("title"), note: col("note"),
+      debit: col("debit"), credit: col("kredit"), balance: col("saldo"), transactionLabel: col("transaksi"), reimburse: col("reimburse"),
+    };
+    const transactions: Transaction[] = [];
+
+    for (let rowIndex = headerIndex + 1; rowIndex < rows.length; rowIndex++) {
+      const row = rows[rowIndex];
+      const date = parseDate(row[index.date], new Date().getFullYear(), 1);
+      const debit = parseAmount(row[index.debit]).value;
+      const credit = parseAmount(row[index.credit]).value;
+      if (!date) continue;
+      if ((debit ?? 0) > 0 && (credit ?? 0) > 0) {
+        throw new Error(`Baris ${rowIndex + 1}: kolom DEBIT dan KREDIT sama-sama terisi.`);
+      }
+
+      const fields = {
+        inv: cellText(row[index.inv]),
+        tl: cellText(row[index.tl]),
+        rfq: cellText(row[index.rfq]),
+        pr: cellText(row[index.pr]),
+        po: cellText(row[index.po]),
+        suratNo: cellText(row[index.suratNo]),
+        title: cellText(row[index.title]),
+        note: cellText(row[index.note]),
+        transactionLabel: cellText(row[index.transactionLabel]),
+        reimburse: cellText(row[index.reimburse]),
+      };
+      const description = [fields.title, fields.note, fields.po, fields.suratNo, fields.pr, fields.rfq, fields.tl, fields.inv, fields.transactionLabel]
+        .filter(Boolean)
+        .join(" · ") || "Transaksi tanpa keterangan";
+      const type: "DB" | "CR" = (debit ?? 0) > 0 ? "DB" : (credit ?? 0) > 0 ? "CR" : "DB";
+      const amount = type === "DB" ? debit ?? 0 : credit ?? 0;
+
+      transactions.push({
+        id: uid() + rowIndex,
+        rowNumber: parseAmount(row[index.no]).value,
+        date,
+        description,
+        branch: "",
+        amount,
+        type,
+        balance: parseAmount(row[index.balance]).value,
+        keywords: extractKeywords(description),
+        ...fields,
+        debit,
+        credit,
+      });
+    }
+
+    if (!transactions.length) continue;
+    return {
+      transactions,
+      sheetName,
+      summary: {
+        openingBalance: summaryValue(rows, "Saldo Awal"),
+        balanceShortage: summaryValue(rows, "Saldo Kurang"),
+        updatedBalance: summaryValue(rows, "Saldo Update"),
+        pendingReimburse: summaryValue(rows, "Belum Reimburse"),
+      },
+    };
+  }
+
+  throw new Error("Format file tidak sesuai. Pastikan kolom TGLTRANSAKSI, DEBIT, KREDIT, dan SALDO tersedia.");
+}
+
 export async function parseBcaFile(file: File, year: number, month: number): Promise<ParseResult> {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array", cellDates: false });

@@ -16,4 +16,9 @@ class ReconciliationRepository
     {
         return Reconciliation::with('transactions')->latest('year')->latest('month')->get();
     }
+
+    public function latestUploadedWithTransactions(): ?Reconciliation
+    {
+        return Reconciliation::with('transactions')->orderByDesc('updated_at')->orderByDesc('uploaded_at')->orderByDesc('id')->first();
+    }
 }

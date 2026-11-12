@@ -199,7 +199,7 @@ export function AdminLayout({ route, children }: { route: string; children: Reac
         onClose={() => setConfirmOut(false)}
         onConfirm={logout}
         title="Keluar dari aplikasi?"
-        message="Sesi Anda akan diakhiri. Data tetap tersimpan di browser ini."
+        message="Sesi Anda akan diakhiri. Anda dapat masuk kembali untuk melanjutkan."
         confirmText="Ya, keluar"
       />
     </div>

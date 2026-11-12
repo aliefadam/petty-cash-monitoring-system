@@ -73,7 +73,7 @@ export function DataTable<T>({
     onRefresh?.();
     timer.current = window.setTimeout(() => {
       setRefreshing(false);
-      toast.success("Data diperbarui", "Data terbaru berhasil dimuat dari penyimpanan lokal.");
+      toast.success("Data diperbarui", "Data terbaru berhasil dimuat dari database.");
     }, 750);
   };
 
