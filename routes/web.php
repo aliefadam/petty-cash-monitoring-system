@@ -16,7 +16,12 @@ Route::middleware('auth')->group(function () {
     Route::prefix('rekonsiliasi')->name('reconciliations.')->group(function () {
         Route::get('/', [ReconciliationController::class, 'index'])->name('index');
         Route::post('/', [ReconciliationController::class, 'store'])->name('store');
+        Route::post('/transactions', [ReconciliationController::class, 'addMonitoringTransaction'])->name('transactions.add');
+        Route::post('/references', [ReconciliationController::class, 'generateReference'])->name('references.generate');
+        Route::put('/transactions/{transaction}', [ReconciliationController::class, 'updateMonitoringTransaction'])->whereNumber('transaction')->name('transactions.update');
+        Route::delete('/transactions/{transaction}', [ReconciliationController::class, 'deleteMonitoringTransaction'])->whereNumber('transaction')->name('transactions.delete');
         Route::post('/lookup-detail', [ReconciliationController::class, 'lookupDetail'])->name('lookup-detail');
+        Route::get('/lookups', [ReconciliationController::class, 'lookupOptions'])->name('lookups');
         Route::get('/{reconciliation}', [ReconciliationController::class, 'show'])->whereNumber('reconciliation')->name('show');
         Route::put('/{reconciliation}/transactions', [ReconciliationController::class, 'transactions'])->whereNumber('reconciliation')->name('transactions');
         Route::delete('/{reconciliation}', [ReconciliationController::class, 'destroy'])->whereNumber('reconciliation')->name('destroy');

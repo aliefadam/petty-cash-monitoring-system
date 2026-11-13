@@ -10,7 +10,6 @@ import { router, usePage } from "@inertiajs/react";
 const NAV = [
   { path: "/dashboard", label: "Dashboard", icon: "chart-pie", desc: "Ringkasan & statistik" },
   { path: "/rekonsiliasi", label: "Rekonsiliasi", icon: "memo-circle-check", desc: "Mutasi rekening BCA" },
-  { path: "/referensi", label: "No. Referensi", icon: "hastag", desc: "Kode referensi transaksi" },
 ];
 
 function Logo({ light }: { light?: boolean }) {
@@ -199,7 +198,7 @@ export function AdminLayout({ route, children }: { route: string; children: Reac
         onClose={() => setConfirmOut(false)}
         onConfirm={logout}
         title="Keluar dari aplikasi?"
-        message="Sesi Anda akan diakhiri. Data tetap tersimpan di browser ini."
+        message="Sesi Anda akan diakhiri. Anda dapat masuk kembali untuk melanjutkan."
         confirmText="Ya, keluar"
       />
     </div>

@@ -23,8 +23,10 @@ interface DataTableProps<T> {
   searchText: (row: T) => string;
   searchPlaceholder?: string;
   onRefresh?: () => void;
+  showRefresh?: boolean;
   actions?: (row: T) => ReactNode;
   toolbar?: ReactNode;
+  toolbarClassName?: string;
   headerAction?: ReactNode;
   pageSize?: number;
   emptyTitle?: string;
@@ -40,8 +42,10 @@ export function DataTable<T>({
   searchText,
   searchPlaceholder = "Cari data...",
   onRefresh,
+  showRefresh = true,
   actions,
   toolbar,
+  toolbarClassName,
   headerAction,
   pageSize = 8,
   emptyTitle = "Belum ada data",
@@ -73,7 +77,7 @@ export function DataTable<T>({
     onRefresh?.();
     timer.current = window.setTimeout(() => {
       setRefreshing(false);
-      toast.success("Data diperbarui", "Data terbaru berhasil dimuat dari penyimpanan lokal.");
+      toast.success("Data diperbarui", "Data terbaru berhasil dimuat dari database.");
     }, 750);
   };
 
@@ -119,15 +123,17 @@ export function DataTable<T>({
               <Icon name="cross" />
             </button>
           </div>
-          {toolbar && <div className="sm:w-56">{toolbar}</div>}
-          <button
-            onClick={refresh}
-            title="Refresh data"
-            className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition-all duration-300 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
-          >
-            <Icon name="refresh" className={cn("text-base", refreshing && "animate-spin")} />
-            <span>Refresh</span>
-          </button>
+          {toolbar && <div className={cn("sm:w-56", toolbarClassName)}>{toolbar}</div>}
+          {showRefresh && (
+            <button
+              onClick={refresh}
+              title="Refresh data"
+              className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition-all duration-300 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
+            >
+              <Icon name="refresh" className={cn("text-base", refreshing && "animate-spin")} />
+              <span>Refresh</span>
+            </button>
+          )}
         </div>
       </div>
 

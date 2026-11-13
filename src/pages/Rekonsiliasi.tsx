@@ -78,7 +78,7 @@ export default function Rekonsiliasi() {
     setConfirmOpen(false);
   };
 
-  const sum = (r: Reconciliation, t: "DB" | "CR") => r.transactions.filter((x) => x.type === t).reduce((s, x) => s + x.amount, 0);
+      const sum = (r: Reconciliation, t: "DB" | "CR") => r.transactions.filter((x) => x.type === t).reduce((s, x) => s + x.amount, 0);
 
   const columns: Column<Reconciliation>[] = [
     {

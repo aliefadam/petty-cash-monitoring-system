@@ -10,7 +10,7 @@ class Reconciliation extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['month', 'year', 'file_name', 'uploaded_at', 'file_path'];
+    protected $fillable = ['month', 'year', 'file_name', 'uploaded_at', 'file_path', 'opening_balance', 'balance_shortage', 'updated_balance', 'pending_reimburse'];
     protected function casts(): array { return ['uploaded_at' => 'datetime']; }
     public function transactions(): HasMany { return $this->hasMany(Transaction::class); }
 }
