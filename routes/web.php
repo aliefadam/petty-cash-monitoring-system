@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MonitoringPdfController;
 use App\Http\Controllers\ReconciliationController;
 use App\Http\Controllers\ReferenceController;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +23,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/transactions/{transaction}', [ReconciliationController::class, 'deleteMonitoringTransaction'])->whereNumber('transaction')->name('transactions.delete');
         Route::post('/lookup-detail', [ReconciliationController::class, 'lookupDetail'])->name('lookup-detail');
         Route::get('/lookups', [ReconciliationController::class, 'lookupOptions'])->name('lookups');
+        Route::get('/export/pdf', MonitoringPdfController::class)->name('export.pdf');
         Route::get('/{reconciliation}', [ReconciliationController::class, 'show'])->whereNumber('reconciliation')->name('show');
         Route::put('/{reconciliation}/transactions', [ReconciliationController::class, 'transactions'])->whereNumber('reconciliation')->name('transactions');
         Route::delete('/{reconciliation}', [ReconciliationController::class, 'destroy'])->whereNumber('reconciliation')->name('destroy');

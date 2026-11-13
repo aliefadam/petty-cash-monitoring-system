@@ -85,7 +85,7 @@ export function FileDrop({ file, onChange, error, label }: FileDropProps) {
               <Icon name="upload" />
             </div>
             <p className="text-sm font-bold text-slate-800">Tarik file ke sini atau klik untuk memilih</p>
-            <p className="mt-1 text-xs text-slate-500">Mutasi rekening BCA · .xlsx, .xls, .csv</p>
+            <p className="mt-1 text-xs text-slate-500">Unggah workbook dengan format .xlsx, .xls, .csv</p>
           </>
         )}
       </div>

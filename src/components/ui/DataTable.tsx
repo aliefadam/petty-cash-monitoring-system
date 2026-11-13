@@ -24,6 +24,7 @@ interface DataTableProps<T> {
   searchPlaceholder?: string;
   onRefresh?: () => void;
   showRefresh?: boolean;
+  onSearchChange?: (query: string) => void;
   actions?: (row: T) => ReactNode;
   toolbar?: ReactNode;
   toolbarClassName?: string;
@@ -43,6 +44,7 @@ export function DataTable<T>({
   searchPlaceholder = "Cari data...",
   onRefresh,
   showRefresh = true,
+  onSearchChange,
   actions,
   toolbar,
   toolbarClassName,
@@ -109,12 +111,19 @@ export function DataTable<T>({
             />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setQuery(value);
+                onSearchChange?.(value);
+              }}
               placeholder={searchPlaceholder}
               className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/60 pr-10 pl-11 text-sm font-medium text-slate-800 transition-all duration-300 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
             />
             <button
-              onClick={() => setQuery("")}
+              onClick={() => {
+                setQuery("");
+                onSearchChange?.("");
+              }}
               className={cn(
                 "absolute top-1/2 right-2 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-xs text-slate-400 transition-all duration-300 hover:bg-blue-50 hover:text-blue-600",
                 query ? "scale-100 opacity-100" : "pointer-events-none scale-50 opacity-0"

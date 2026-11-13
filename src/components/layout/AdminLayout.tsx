@@ -9,7 +9,7 @@ import { router, usePage } from "@inertiajs/react";
 
 const NAV = [
   { path: "/dashboard", label: "Dashboard", icon: "chart-pie", desc: "Ringkasan & statistik" },
-  { path: "/rekonsiliasi", label: "Rekonsiliasi", icon: "memo-circle-check", desc: "Mutasi rekening BCA" },
+  { path: "/rekonsiliasi", label: "Rekonsiliasi", icon: "memo-circle-check", desc: "Monitoring Petty Cash" },
 ];
 
 function Logo({ light }: { light?: boolean }) {

@@ -83,6 +83,7 @@ export default function RekonsiliasiDetail() {
 
   const [filters, setFilters] = useState<MonitoringFilters>(readSavedFilters);
   const [draftFilters, setDraftFilters] = useState<MonitoringFilters>(readSavedFilters);
+  const [tableSearch, setTableSearch] = useState("");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [open, setOpen] = useState(false);
@@ -288,6 +289,15 @@ export default function RekonsiliasiDetail() {
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
+  const downloadPdf = () => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    if (tableSearch.trim()) params.set("search", tableSearch.trim());
+    window.location.assign(`/rekonsiliasi/export/pdf?${params.toString()}`);
+  };
+
   const openFilters = () => {
     setDraftFilters(filters);
     setFilterPanelOpen(true);
@@ -395,15 +405,21 @@ export default function RekonsiliasiDetail() {
         columns={columns}
         rowKey={(t) => t.id}
         searchText={(t) => `${t.date} ${t.inv ?? ""} ${t.tl ?? ""} ${t.rfq ?? ""} ${t.pr ?? ""} ${t.po ?? ""} ${t.suratNo ?? ""} ${t.referenceCode ?? ""} ${t.title ?? ""} ${t.note ?? ""} ${t.transactionLabel ?? ""} ${t.reimburse ?? ""} ${t.amount} ${t.keywords.map((k) => k.value).join(" ")}`}
+        onSearchChange={setTableSearch}
         searchPlaceholder="Cari PO, PR, title, note, atau nominal..."
         showRefresh={false}
         pageSize={20}
         toolbar={
-          <div className="relative">
-            <Button size="md" variant="secondary" icon="filter" title="Filter data" onClick={openFilters}>
-              Filter
+          <div className="flex items-center gap-2">
+            <Button size="md" variant="secondary" icon="download" title="Unduh data ke PDF" onClick={downloadPdf}>
+              Unduh PDF
             </Button>
-            {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-extrabold text-white">{activeFilterCount}</span>}
+            <div className="relative">
+              <Button size="md" variant="secondary" icon="filter" title="Filter data" onClick={openFilters}>
+                Filter
+              </Button>
+              {activeFilterCount > 0 && <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-extrabold text-white">{activeFilterCount}</span>}
+            </div>
           </div>
         }
         toolbarClassName="sm:w-auto"
