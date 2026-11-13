@@ -12,7 +12,7 @@ import { MoneyInput, TextArea, TextInput } from "../components/ui/Input";
 import { Badge } from "../components/ui/Badge";
 import { Icon } from "../components/ui/Icon";
 import { useToast } from "../components/ui/Toast";
-import { formatDate, formatRupiah } from "../lib/format";
+import { formatDate, formatRupiah, MONTHS } from "../lib/format";
 import { extractKeywords, parseMonitoringFile } from "../lib/parser";
 import type { DetectedCodeDetail, Transaction } from "../lib/types";
 import { cn } from "../utils/cn";
@@ -20,9 +20,32 @@ import { router, usePage } from "@inertiajs/react";
 import type { Reconciliation, Reference } from "../lib/types";
 
 const reimburseOptions = ["", "Sudah", "Belum", "Partial"].map((value) => ({ value, label: value || "Kosong" }));
+const reimburseFilterOptions = [
+  { value: "", label: "Semua status" },
+  { value: "Sudah", label: "Sudah" },
+  { value: "Belum", label: "Belum" },
+  { value: "Partial", label: "Partial" },
+  { value: "__empty__", label: "Belum diisi" },
+];
 
-type MonitoringFilters = { date: string; inv: string; tl: string; rfq: string; pr: string; po: string; suratNo: string; referenceCode: string };
-const emptyFilters = (): MonitoringFilters => ({ date: "", inv: "", tl: "", rfq: "", pr: "", po: "", suratNo: "", referenceCode: "" });
+type MonitoringFilters = { date: string; month: string; inv: string; tl: string; rfq: string; pr: string; po: string; suratNo: string; referenceCode: string; reimburse: string };
+const FILTER_STORAGE_KEY = "monitoring-po-filters";
+const emptyFilters = (): MonitoringFilters => ({ date: "", month: "", inv: "", tl: "", rfq: "", pr: "", po: "", suratNo: "", referenceCode: "", reimburse: "" });
+const readSavedFilters = (): MonitoringFilters => {
+  if (typeof window === "undefined") return emptyFilters();
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(FILTER_STORAGE_KEY) ?? "null") as Partial<MonitoringFilters> | null;
+    if (!saved) return emptyFilters();
+    const defaults = emptyFilters();
+    return Object.fromEntries(Object.keys(defaults).map((key) => [key, typeof saved[key as keyof MonitoringFilters] === "string" ? saved[key as keyof MonitoringFilters] : ""])) as MonitoringFilters;
+  } catch {
+    return emptyFilters();
+  }
+};
+const persistFilters = (filters: MonitoringFilters) => {
+  if (typeof window === "undefined") return;
+  try { window.sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters)); } catch { /* Penyimpanan browser dapat dinonaktifkan. */ }
+};
 
 type ManualMonitoringRow = {
   date: string; inv: string; tl: string; rfq: string; pr: string; po: string; suratNo: string; referenceCode: string; referenceCodeGenerated: boolean;
@@ -58,8 +81,8 @@ export default function RekonsiliasiDetail() {
   const { reconciliation: rec, references: refs = [] } = usePage<{ reconciliation: Reconciliation | null; references?: Reference[] }>().props;
   const toast = useToast();
 
-  const [filters, setFilters] = useState<MonitoringFilters>(emptyFilters);
-  const [draftFilters, setDraftFilters] = useState<MonitoringFilters>(emptyFilters);
+  const [filters, setFilters] = useState<MonitoringFilters>(readSavedFilters);
+  const [draftFilters, setDraftFilters] = useState<MonitoringFilters>(readSavedFilters);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [open, setOpen] = useState(false);
@@ -77,6 +100,8 @@ export default function RekonsiliasiDetail() {
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const [generatingReference, setGeneratingReference] = useState(false);
   const [referenceError, setReferenceError] = useState("");
+
+  useEffect(() => persistFilters(filters), [filters]);
 
   useEffect(() => {
     if (!open || !selected) return;
@@ -137,8 +162,6 @@ export default function RekonsiliasiDetail() {
         onSuccess: () => {
           setUpdateOpen(false);
           setUploadFile(null);
-          setFilters(emptyFilters());
-          setDraftFilters(emptyFilters());
           toast.success("File diperbarui", `${parsed.transactions.length} baris monitoring berhasil dibaca.`);
         },
         onError: (errors) => setUploadError(String(Object.values(errors)[0] ?? "File gagal disimpan.")),
@@ -154,6 +177,8 @@ export default function RekonsiliasiDetail() {
     setManualError("");
     setSavingManual(true);
     const options = {
+      preserveState: true,
+      preserveScroll: true,
       onSuccess: () => {
         setAddOpen(false);
         setEditingTransaction(null);
@@ -233,13 +258,15 @@ export default function RekonsiliasiDetail() {
     const equals = (value: string, target: string | null | undefined) => !value || (target ?? "").trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase();
     const filtered = txs.filter((transaction) =>
       (!filters.date || transaction.date === filters.date) &&
+      (!filters.month || transaction.date.startsWith(filters.month)) &&
       equals(filters.inv, transaction.inv) &&
       equals(filters.tl, transaction.tl) &&
       equals(filters.rfq, transaction.rfq) &&
       equals(filters.pr, transaction.pr) &&
       equals(filters.po, transaction.po) &&
       (!filters.suratNo || (transaction.suratNo ?? "").toLocaleLowerCase().includes(filters.suratNo.trim().toLocaleLowerCase())) &&
-      equals(filters.referenceCode, transaction.referenceCode)
+      equals(filters.referenceCode, transaction.referenceCode) &&
+      (!filters.reimburse || (filters.reimburse === "__empty__" ? !transaction.reimburse : equals(filters.reimburse, transaction.reimburse)))
     );
     return [...filtered].sort((a, b) =>
       b.date.localeCompare(a.date) ||
@@ -247,6 +274,17 @@ export default function RekonsiliasiDetail() {
       b.id.localeCompare(a.id)
     );
   }, [rec, filters]);
+
+  const transactionMonthOptions = useMemo(() => {
+    const months = [...new Set((rec?.transactions ?? []).map((transaction) => transaction.date.slice(0, 7)))].sort().reverse();
+    return [
+      { value: "", label: "Semua bulan" },
+      ...months.map((month) => {
+        const [year, monthNumber] = month.split("-").map(Number);
+        return { value: month, label: `${MONTHS[monthNumber - 1]} ${year}` };
+      }),
+    ];
+  }, [rec]);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
@@ -397,7 +435,7 @@ export default function RekonsiliasiDetail() {
             </Button>
             <Button
               icon="check"
-              onClick={() => { setFilters(draftFilters); setFilterPanelOpen(false); }}
+              onClick={() => { persistFilters(draftFilters); setFilters(draftFilters); setFilterPanelOpen(false); }}
               className="flex-1"
             >
               Terapkan Filter
@@ -407,6 +445,7 @@ export default function RekonsiliasiDetail() {
       >
         <div className="space-y-4">
           <TextInput label="TGL TRANSAKSI" type="date" value={draftFilters.date} onChange={(date) => setDraftFilters((current) => ({ ...current, date }))} />
+          <Select label="BULAN TRANSAKSI" value={draftFilters.month} onChange={(month) => setDraftFilters((current) => ({ ...current, month }))} options={transactionMonthOptions} />
           <SearchableSelect label="INV" field="inv" value={draftFilters.inv} onChange={(inv) => setDraftFilters((current) => ({ ...current, inv }))} />
           <SearchableSelect label="TL" field="tl" value={draftFilters.tl} onChange={(tl) => setDraftFilters((current) => ({ ...current, tl }))} />
           <SearchableSelect label="RFQ" field="rfq" value={draftFilters.rfq} onChange={(rfq) => setDraftFilters((current) => ({ ...current, rfq }))} />
@@ -414,6 +453,7 @@ export default function RekonsiliasiDetail() {
           <SearchableSelect label="PO" field="po" value={draftFilters.po} onChange={(po) => setDraftFilters((current) => ({ ...current, po }))} />
           <TextInput label="SURAT NO" value={draftFilters.suratNo} onChange={(suratNo) => setDraftFilters((current) => ({ ...current, suratNo }))} placeholder="Cari Surat No..." />
           <SearchableSelect label="NO. REFERENSI" field="reference" value={draftFilters.referenceCode} onChange={(referenceCode) => setDraftFilters((current) => ({ ...current, referenceCode }))} />
+          <Select label="STATUS REIMBURSE" value={draftFilters.reimburse} onChange={(reimburse) => setDraftFilters((current) => ({ ...current, reimburse }))} options={reimburseFilterOptions} />
         </div>
       </SidePanel>
 
@@ -653,6 +693,8 @@ export default function RekonsiliasiDetail() {
         onConfirm={() => {
           if (!deletingTransaction) return;
           router.delete(`/rekonsiliasi/transactions/${deletingTransaction.id}`, {
+            preserveState: true,
+            preserveScroll: true,
             onSuccess: () => toast.success("Data dihapus", "Baris monitoring berhasil dihapus."),
             onFinish: () => setDeletingTransaction(null),
           });

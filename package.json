@@ -24,7 +24,9 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.1",
+    "esbuild": "npm:esbuild-wasm@^0.27.1",
     "laravel-vite-plugin": "^2.0.0",
+    "rollup": "npm:@rollup/wasm-node@^4.68.2",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
     "vite": "7.3.2"
