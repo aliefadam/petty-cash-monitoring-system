@@ -231,6 +231,7 @@ export async function parseMonitoringFile(file: File): Promise<MonitoringParseRe
     const index = {
       no: col("no"), date: col("tgltransaksi"), inv: col("inv"), tl: col("tl"), rfq: col("rfq"),
       pr: col("pr"), po: col("po"), suratNo: col("surat no"), title: col("title"), note: col("note"),
+      referenceCode: rows[headerIndex].findIndex((value) => norm(value).replace(/\./g, "") === "no referensi"),
       debit: col("debit"), credit: col("kredit"), balance: col("saldo"), transactionLabel: col("transaksi"), reimburse: col("reimburse"),
     };
     const transactions: Transaction[] = [];
@@ -252,6 +253,7 @@ export async function parseMonitoringFile(file: File): Promise<MonitoringParseRe
         pr: cellText(row[index.pr]),
         po: cellText(row[index.po]),
         suratNo: cellText(row[index.suratNo]),
+        referenceCode: index.referenceCode >= 0 ? cellText(row[index.referenceCode]) : "",
         title: cellText(row[index.title]),
         note: cellText(row[index.note]),
         transactionLabel: cellText(row[index.transactionLabel]),

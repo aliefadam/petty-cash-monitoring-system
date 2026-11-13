@@ -3,10 +3,27 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\ValidationException;
 
 class StoreReconciliationRequest extends FormRequest
 {
     public function authorize(): bool { return $this->user() !== null; }
+
+    protected function prepareForValidation(): void
+    {
+        foreach (['transactionsJson' => 'transactions', 'summaryJson' => 'summary'] as $source => $target) {
+            $json = $this->input($source);
+            if (!is_string($json)) continue;
+
+            $decoded = json_decode($json, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+                throw ValidationException::withMessages([$source => 'Payload file monitoring tidak valid. Silakan coba unggah ulang.']);
+            }
+
+            $this->merge([$target => $decoded]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -28,6 +45,7 @@ class StoreReconciliationRequest extends FormRequest
             'transactions.*.pr' => ['nullable', 'string', 'max:100'],
             'transactions.*.po' => ['nullable', 'string', 'max:100'],
             'transactions.*.suratNo' => ['nullable', 'string', 'max:150'],
+            'transactions.*.referenceCode' => ['nullable', 'string', 'size:7'],
             'transactions.*.title' => ['nullable', 'string'],
             'transactions.*.note' => ['nullable', 'string'],
             'transactions.*.debit' => ['nullable', 'numeric', 'min:0'],

@@ -3,8 +3,11 @@
 namespace App\Services;
 
 use App\Models\Reconciliation;
+use App\Models\Reference;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class ReconciliationService
 {
@@ -32,8 +35,39 @@ class ReconciliationService
 
     public function addMonitoringTransaction(Reconciliation $reconciliation, array $row): void
     {
-        $reconciliation->transactions()->create($this->transactionAttributes($row));
-        $reconciliation->touch();
+        DB::transaction(function () use ($reconciliation, $row) {
+            $this->saveGeneratedReference($row);
+            $this->ensureOpeningBalance($reconciliation);
+            $reconciliation->transactions()->create($this->transactionAttributes($row));
+            $this->recalculateBalances($reconciliation);
+            $reconciliation->touch();
+        });
+    }
+
+    public function updateMonitoringTransaction(Transaction $transaction, array $row): void
+    {
+        $reconciliation = $transaction->reconciliation;
+        DB::transaction(function () use ($transaction, $reconciliation, $row) {
+            $this->saveGeneratedReference($row);
+            if ($reconciliation) $this->ensureOpeningBalance($reconciliation);
+            $row['rowNumber'] = $transaction->row_number;
+            $transaction->update($this->transactionAttributes($row));
+            if ($reconciliation) {
+                $this->recalculateBalances($reconciliation);
+                $reconciliation->touch();
+            }
+        });
+    }
+
+    public function deleteMonitoringTransaction(Transaction $transaction): void
+    {
+        $reconciliation = $transaction->reconciliation;
+        if ($reconciliation) $this->ensureOpeningBalance($reconciliation);
+        $transaction->delete();
+        if ($reconciliation) {
+            $this->recalculateBalances($reconciliation);
+            $reconciliation->touch();
+        }
     }
 
     public function replaceTransactions(Reconciliation $reconciliation, array $transactions): Reconciliation
@@ -86,6 +120,7 @@ class ReconciliationService
             'pr' => $row['pr'] ?? null,
             'po' => $row['po'] ?? null,
             'surat_no' => $row['suratNo'] ?? $row['surat_no'] ?? null,
+            'reference_code' => ($row['referenceCode'] ?? $row['reference_code'] ?? '') ?: null,
             'title' => $row['title'] ?? null,
             'note' => $row['note'] ?? null,
             'debit' => $debit,
@@ -93,6 +128,83 @@ class ReconciliationService
             'transaction_label' => $row['transactionLabel'] ?? $row['transaction_label'] ?? null,
             'reimburse' => $row['reimburse'] ?? null,
         ];
+    }
+
+    private function ensureOpeningBalance(Reconciliation $reconciliation): void
+    {
+        if ($reconciliation->opening_balance !== null) return;
+
+        $first = $reconciliation->transactions()
+            ->orderBy('transaction_date')
+            ->orderBy('row_number')
+            ->orderBy('id')
+            ->first();
+
+        if (!$first || $first->balance === null) {
+            $reconciliation->opening_balance = 0;
+        } else {
+            $movement = $this->transactionMovement($first);
+            $reconciliation->opening_balance = (float) $first->balance - $movement;
+        }
+
+        $reconciliation->save();
+    }
+
+    private function recalculateBalances(Reconciliation $reconciliation): void
+    {
+        $balance = (float) ($reconciliation->opening_balance ?? 0);
+        $transactions = $reconciliation->transactions()
+            ->orderBy('transaction_date')
+            ->orderBy('row_number')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($transactions as $transaction) {
+            $balance = round($balance + $this->transactionMovement($transaction), 2);
+            $transaction->balance = $balance;
+            $transaction->save();
+        }
+    }
+
+    private function transactionMovement(Transaction $transaction): float
+    {
+        $debit = $transaction->debit !== null
+            ? (float) $transaction->debit
+            : ($transaction->type === 'DB' ? (float) $transaction->amount : 0);
+        $credit = $transaction->credit !== null
+            ? (float) $transaction->credit
+            : ($transaction->type === 'CR' ? (float) $transaction->amount : 0);
+
+        return $debit - $credit;
+    }
+
+    private function saveGeneratedReference(array $row): void
+    {
+        if (!($row['referenceCodeGenerated'] ?? false)) return;
+
+        $code = strtoupper(trim($row['referenceCode'] ?? ''));
+        if ($code === '' || Reference::where('code', $code)->exists()) {
+            throw ValidationException::withMessages(['transaction.referenceCode' => 'Nomor referensi sudah digunakan. Generate nomor baru.']);
+        }
+
+        $description = collect([
+            $row['title'] ?? null,
+            $row['note'] ?? null,
+            $row['po'] ?? null,
+            $row['suratNo'] ?? null,
+            $row['pr'] ?? null,
+            $row['rfq'] ?? null,
+            $row['tl'] ?? null,
+            $row['inv'] ?? null,
+        ])->filter(fn ($value) => is_string($value) && trim($value) !== '')
+            ->map(fn ($value) => trim($value))
+            ->implode(' · ');
+
+        Reference::create([
+            'code' => $code,
+            'description' => mb_substr($description ?: 'Petty cash', 0, 500),
+            'amount' => $row['debit'] ?? $row['credit'] ?? 0,
+        ]);
     }
 
     private function extractKeywords(string $text): array

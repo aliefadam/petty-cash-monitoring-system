@@ -24,6 +24,7 @@ export interface Transaction {
   pr?: string | null;
   po?: string | null;
   suratNo?: string | null;
+  referenceCode?: string | null;
   title?: string | null;
   note?: string | null;
   debit?: number | null;
@@ -55,7 +56,7 @@ export interface Reference {
 
 export interface DetectedCodeDetail {
   code: string;
-  kind: "po" | "prefix";
+  kind: "po" | "prefix" | "rfq" | "pr";
   source: string;
   found: boolean;
   title?: string | null;
