@@ -328,21 +328,18 @@ export default function RekonsiliasiDetail() {
   const financeMatches = useMemo(() => {
     if (!financeResult?.found) return [];
 
-    const prices = [
-      ...financeResult.items.flatMap((item) => [
-        { label: `Harga satuan · ${item.name}`, amount: item.unitPrice },
-        { label: `Subtotal · ${item.name}`, amount: item.subtotal },
-      ]),
-      { label: "Total item", amount: financeResult.total ?? 0 },
-    ].filter((price) => Number.isFinite(price.amount) && price.amount > 0);
+    const totalPrice = financeResult.total ?? 0;
+    if (!Number.isFinite(totalPrice) || totalPrice <= 0) return [];
+    const totalInCents = Math.round(totalPrice * 100);
 
     return (rec?.transactions ?? []).flatMap((transaction) => {
       const amount = transaction.type === "DB"
         ? (transaction.debit ?? transaction.amount)
         : (transaction.credit ?? transaction.amount);
       const amountInCents = Math.round(Math.abs(amount) * 100);
-      const matches = prices.filter((price) => Math.round(price.amount * 100) === amountInCents);
-      return matches.length ? [{ transaction, amount, matches }] : [];
+      return totalInCents === amountInCents
+        ? [{ transaction, amount, matches: [{ label: "Total item" }] }]
+        : [];
     }).sort((a, b) => b.transaction.date.localeCompare(a.transaction.date) || (b.transaction.rowNumber ?? 0) - (a.transaction.rowNumber ?? 0));
   }, [financeResult, rec]);
 
@@ -691,15 +688,13 @@ export default function RekonsiliasiDetail() {
         <div className="space-y-5">
           <div className="flex flex-col items-end gap-2 sm:flex-row">
             <div className="w-full min-w-0 flex-1">
-              <TextInput
+              <SearchableSelect
                 label="Nomor transaksi / Ticket No."
+                field="finance"
                 value={financeNumber}
-                onChange={(value) => { setFinanceNumber(value); setFinanceError(""); }}
-                placeholder="Masukkan nomor transaksi Finance..."
-                icon="search"
-                maxLength={100}
+                onChange={(value) => { setFinanceNumber(value); setFinanceError(""); setFinanceResult(null); }}
+                placeholder="Cari atau pilih nomor tiket..."
                 error={financeError}
-                onEnter={checkFinance}
               />
             </div>
             <Button size="lg" icon="search-alt" loading={financeLoading} className="w-full sm:w-auto" onClick={checkFinance}>Cari Data</Button>
@@ -778,7 +773,7 @@ export default function RekonsiliasiDetail() {
                 <div className="flex flex-wrap items-start justify-between gap-2 border-b border-blue-50 bg-blue-50/60 px-4 py-3">
                   <div>
                     <p className="text-sm font-extrabold text-slate-800">Data yang mungkin cocok</p>
-                    <p className="mt-0.5 text-xs text-slate-500">Pencocokan nominal dengan harga satuan, subtotal item, dan total item pada seluruh data monitoring.</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Pencocokan nominal dengan total item Finance pada seluruh data monitoring.</p>
                   </div>
                   <Badge tone={financeMatches.length ? "green" : "slate"}>{financeMatches.length} data cocok</Badge>
                 </div>

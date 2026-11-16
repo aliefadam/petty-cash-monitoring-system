@@ -48,7 +48,7 @@ class ReconciliationController extends Controller
     {
         $this->authorize('viewAny', Reconciliation::class);
         $data = $request->validate([
-            'field' => ['required', 'in:inv,tl,rfq,pr,po,reference'],
+            'field' => ['required', 'in:inv,tl,rfq,pr,po,reference,finance'],
             'q' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -67,6 +67,25 @@ class ReconciliationController extends Controller
                 'value' => $reference->code,
                 'label' => $reference->code . ' · ' . $reference->description . ' · Rp ' . number_format((float) $reference->amount, 0, ',', '.'),
             ])->values()]);
+        }
+
+        if ($data['field'] === 'finance') {
+            $search = trim($data['q'] ?? '');
+            $tickets = \Illuminate\Support\Facades\DB::connection('bmt_finance')
+                ->table('cash_advances')
+                ->whereNull('deleted_at')
+                ->whereNotNull('ticket_no')
+                ->where('ticket_no', '<>', '')
+                ->when($search !== '', fn ($query) => $query->where('ticket_no', 'like', '%' . addcslashes($search, '%_\\') . '%'))
+                ->select('ticket_no')
+                ->distinct()
+                ->orderByDesc('ticket_no')
+                ->limit(30)
+                ->pluck('ticket_no')
+                ->map(fn ($ticket) => ['value' => (string) $ticket, 'label' => (string) $ticket])
+                ->values();
+
+            return response()->json(['options' => $tickets]);
         }
 
         $columns = [

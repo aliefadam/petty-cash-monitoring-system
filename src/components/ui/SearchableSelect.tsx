@@ -13,7 +13,7 @@ interface SearchOption {
 interface SearchableSelectProps {
   value: string;
   onChange: (value: string) => void;
-  field: "inv" | "tl" | "rfq" | "pr" | "po" | "reference";
+  field: "inv" | "tl" | "rfq" | "pr" | "po" | "reference" | "finance";
   label: string;
   placeholder?: string;
   error?: string;
