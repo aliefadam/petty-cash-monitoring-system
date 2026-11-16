@@ -46,26 +46,26 @@ export default function Login() {
           </div>
           <div className="leading-tight">
             <p className="text-lg font-extrabold">PT. Buana Multi Teknik</p>
-            <p className="text-sm text-blue-100">Procurement Division</p>
+            <p className="text-sm text-blue-100">Sistem Monitoring Petty Cash Procurement</p>
           </div>
         </div>
 
-        <div className="relative max-w-lg">
-          <h1 className="animate-fade-up text-4xl leading-tight font-extrabold xl:text-5xl">Monitoring Petty Cash Procurement</h1>
-          <p className="animate-fade-up mt-5 text-lg leading-relaxed text-blue-100" style={{ animationDelay: "100ms" }}>
-            Rekonsiliasi mutasi rekening BCA, deteksi kode transaksi otomatis, dan kelola nomor referensi dalam satu panel.
+        <div className="relative max-w-2xl">
+          <h1 className="animate-fade-up text-3xl leading-tight font-extrabold xl:text-4xl">Sistem Monitoring Petty Cash Procurement</h1>
+          <p className="animate-fade-up mt-4 max-w-xl text-base leading-relaxed text-blue-100" style={{ animationDelay: "100ms" }}>
+            Kelola monitoring petty cash melalui workbook atau input manual, pantau transaksi masuk dan keluar, serta telusuri internal key dalam satu sistem.
           </p>
-          <div className="stagger mt-10 space-y-3">
+          <div className="stagger mt-7 space-y-2.5">
             {[
-              ["upload", "Upload mutasi Excel BCA per bulan"],
-              ["search-alt", "Deteksi otomatis OP-, TX-, PF-, BL-, RE-, PAY- & nomor PO"],
-              ["hastag", "Generate nomor referensi unik 7 karakter"],
+              ["upload", "Unggah workbook Monitoring PO (.xlsx, .xls, .csv)"],
+              ["wallet", "Pantau transaksi masuk, keluar, dan saldo otomatis"],
+              ["filter", "Filter data dan unduh hasilnya ke PDF"],
             ].map(([ic, t]) => (
-              <div key={t} className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-lg">
+              <div key={t} className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 backdrop-blur">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/20 text-base">
                   <Icon name={ic} />
                 </span>
-                <span className="text-sm font-semibold">{t}</span>
+                <span className="text-xs font-semibold sm:text-sm">{t}</span>
               </div>
             ))}
           </div>

@@ -31,7 +31,7 @@ class ReconciliationController extends Controller
         $this->authorize('viewAny', Reconciliation::class);
         $data = $request->validate([
             'code' => ['required', 'string', 'max:100'],
-            'kind' => ['nullable', 'in:po,rfq,pr,prefix'],
+            'kind' => ['nullable', 'in:po,rfq,pr,prefix,finance'],
         ]);
 
         try {

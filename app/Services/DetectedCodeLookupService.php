@@ -19,6 +19,10 @@ class DetectedCodeLookupService
             return $this->purchaseRequest($code);
         }
 
+        if ($kind === 'finance') {
+            return $this->cashAdvance($code);
+        }
+
         if ($kind === 'po' || preg_match('/^\d{2,6}\/[A-Z]{1,8}-PO\/\d{1,2}\/\d{4}$/', $code)) {
             return $this->purchaseOrder($code);
         }

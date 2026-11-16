@@ -89,6 +89,11 @@ export default function RekonsiliasiDetail() {
   const [open, setOpen] = useState(false);
   const [detailResults, setDetailResults] = useState<DetectedCodeDetail[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [financeModalOpen, setFinanceModalOpen] = useState(false);
+  const [financeNumber, setFinanceNumber] = useState("");
+  const [financeResult, setFinanceResult] = useState<DetectedCodeDetail | null>(null);
+  const [financeLoading, setFinanceLoading] = useState(false);
+  const [financeError, setFinanceError] = useState("");
   const [updateOpen, setUpdateOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState("");
@@ -249,6 +254,37 @@ export default function RekonsiliasiDetail() {
     }
   };
 
+  const checkFinance = async () => {
+    const number = financeNumber.trim();
+    if (!number) {
+      setFinanceError("Masukkan nomor transaksi Finance terlebih dahulu.");
+      return;
+    }
+
+    setFinanceLoading(true);
+    setFinanceError("");
+    setFinanceResult(null);
+    try {
+      const response = await axios.post<DetectedCodeDetail>("/rekonsiliasi/lookup-detail", { code: number, kind: "finance" }, {
+        headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
+        withCredentials: true,
+        withXSRFToken: true,
+      });
+      setFinanceResult(response.data);
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? String(error.response?.data?.message ?? "Data Finance tidak dapat dimuat.")
+        : "Data Finance tidak dapat dimuat.";
+      setFinanceError(message);
+    } finally {
+      setFinanceLoading(false);
+    }
+  };
+
+  const openFinanceModal = () => {
+    setFinanceModalOpen(true);
+  };
+
   const stats = useMemo(() => {
     const txs = rec?.transactions ?? [];
     return { total: txs.length };
@@ -288,6 +324,27 @@ export default function RekonsiliasiDetail() {
   }, [rec]);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  const financeMatches = useMemo(() => {
+    if (!financeResult?.found) return [];
+
+    const prices = [
+      ...financeResult.items.flatMap((item) => [
+        { label: `Harga satuan · ${item.name}`, amount: item.unitPrice },
+        { label: `Subtotal · ${item.name}`, amount: item.subtotal },
+      ]),
+      { label: "Total item", amount: financeResult.total ?? 0 },
+    ].filter((price) => Number.isFinite(price.amount) && price.amount > 0);
+
+    return (rec?.transactions ?? []).flatMap((transaction) => {
+      const amount = transaction.type === "DB"
+        ? (transaction.debit ?? transaction.amount)
+        : (transaction.credit ?? transaction.amount);
+      const amountInCents = Math.round(Math.abs(amount) * 100);
+      const matches = prices.filter((price) => Math.round(price.amount * 100) === amountInCents);
+      return matches.length ? [{ transaction, amount, matches }] : [];
+    }).sort((a, b) => b.transaction.date.localeCompare(a.transaction.date) || (b.transaction.rowNumber ?? 0) - (a.transaction.rowNumber ?? 0));
+  }, [financeResult, rec]);
 
   const downloadPdf = () => {
     const params = new URLSearchParams();
@@ -411,7 +468,10 @@ export default function RekonsiliasiDetail() {
         pageSize={20}
         toolbar={
           <div className="flex items-center gap-2">
-            <Button size="md" variant="secondary" icon="download" title="Unduh data ke PDF" onClick={downloadPdf}>
+            <Button size="md" variant="secondary" icon="search-alt" title="Cek nomor di BMT Finance" onClick={openFinanceModal}>
+              Cek Finance
+            </Button>
+            <Button size="md" variant="danger" icon="download" title="Unduh data ke PDF" onClick={downloadPdf}>
               Unduh PDF
             </Button>
             <div className="relative">
@@ -617,6 +677,154 @@ export default function RekonsiliasiDetail() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={financeModalOpen}
+        onClose={() => !financeLoading && setFinanceModalOpen(false)}
+        title="Cek Data BMT Finance"
+        subtitle="Masukkan nomor transaksi untuk melihat informasi cash advance beserta rincian itemnya."
+        icon="search-alt"
+        size="xl"
+        footer={<Button variant="secondary" onClick={() => setFinanceModalOpen(false)} disabled={financeLoading}>Tutup</Button>}
+      >
+        <div className="space-y-5">
+          <div className="flex flex-col items-end gap-2 sm:flex-row">
+            <div className="w-full min-w-0 flex-1">
+              <TextInput
+                label="Nomor transaksi / Ticket No."
+                value={financeNumber}
+                onChange={(value) => { setFinanceNumber(value); setFinanceError(""); }}
+                placeholder="Masukkan nomor transaksi Finance..."
+                icon="search"
+                maxLength={100}
+                error={financeError}
+                onEnter={checkFinance}
+              />
+            </div>
+            <Button size="lg" icon="search-alt" loading={financeLoading} className="w-full sm:w-auto" onClick={checkFinance}>Cari Data</Button>
+          </div>
+
+          {financeLoading ? (
+            <div className="space-y-3">
+              <div className="skeleton h-20 rounded-2xl" />
+              <div className="skeleton h-32 rounded-2xl" />
+            </div>
+          ) : financeResult ? (
+            !financeResult.found ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center text-sm font-medium text-amber-800">
+                Nomor <span className="font-mono font-bold">{financeResult.code}</span> tidak ditemukan di database BMT Finance.
+              </div>
+            ) : (
+              <div className="space-y-4">
+              <section className="overflow-hidden rounded-2xl border border-blue-100 bg-white">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-50 bg-blue-50/60 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-extrabold text-slate-800">{financeResult.title || financeResult.code}</p>
+                    <p className="font-mono text-xs font-semibold text-blue-700">{financeResult.code}</p>
+                  </div>
+                  <Badge tone="green">BMT Finance</Badge>
+                </div>
+
+                <div className="space-y-4 p-4">
+                  {financeResult.description && <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600">{financeResult.description}</p>}
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <DetailField label="Tanggal" value={financeResult.date} />
+                    <DetailField label="Status" value={financeResult.status} />
+                    <DetailField label="Tipe" value={financeResult.type} />
+                    <DetailField label="Jenis" value={financeResult.issueType} />
+                    <DetailField label="Referensi PO" value={financeResult.referencePo} />
+                    <DetailField label="Mata uang" value={financeResult.currency || "IDR"} />
+                  </div>
+
+                  {financeResult.items.length > 0 ? (
+                    <div className="overflow-x-auto rounded-xl border border-slate-100">
+                      <table className="w-full min-w-[560px] text-left text-xs">
+                        <thead className="bg-slate-50 font-bold text-slate-500">
+                          <tr>
+                            <th className="px-3 py-2.5">Item</th>
+                            <th className="px-3 py-2.5 text-right">Qty</th>
+                            <th className="px-3 py-2.5 text-right">Harga Satuan</th>
+                            <th className="px-3 py-2.5 text-right">Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {financeResult.items.map((item, index) => (
+                            <tr key={`${item.name}-${index}`} className="border-t border-slate-100 align-top">
+                              <td className="px-3 py-3">
+                                <p className="font-semibold text-slate-800">{item.name}</p>
+                                {item.description && <p className="mt-0.5 text-slate-500">{item.description}</p>}
+                              </td>
+                              <td className="px-3 py-3 text-right whitespace-nowrap text-slate-600">{item.quantity}</td>
+                              <td className="px-3 py-3 text-right whitespace-nowrap text-slate-600">{formatDetailMoney(item.unitPrice, financeResult.currency)}</td>
+                              <td className="px-3 py-3 text-right font-bold whitespace-nowrap text-slate-800">{formatDetailMoney(item.subtotal, financeResult.currency)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="border-t border-blue-100 bg-blue-50/60">
+                          <tr>
+                            <td colSpan={3} className="px-3 py-3 text-right font-bold text-slate-600">Total item</td>
+                            <td className="px-3 py-3 text-right font-extrabold whitespace-nowrap text-blue-700">{formatDetailMoney(financeResult.total ?? 0, financeResult.currency)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Belum ada rincian item aktif pada cash advance ini.</p>
+                  )}
+                </div>
+              </section>
+              <section className="overflow-hidden rounded-2xl border border-blue-100 bg-white">
+                <div className="flex flex-wrap items-start justify-between gap-2 border-b border-blue-50 bg-blue-50/60 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-extrabold text-slate-800">Data yang mungkin cocok</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Pencocokan nominal dengan harga satuan, subtotal item, dan total item pada seluruh data monitoring.</p>
+                  </div>
+                  <Badge tone={financeMatches.length ? "green" : "slate"}>{financeMatches.length} data cocok</Badge>
+                </div>
+                {financeMatches.length ? (
+                  <div className="divide-y divide-slate-100">
+                    {financeMatches.map(({ transaction, amount, matches }) => {
+                      const internalKeys = [
+                        ["INV", transaction.inv], ["TL", transaction.tl], ["RFQ", transaction.rfq],
+                        ["PR", transaction.pr], ["PO", transaction.po], ["Surat No", transaction.suratNo],
+                        ["No. Referensi", transaction.referenceCode],
+                      ] as const;
+                      const incoming = transaction.type === "DB";
+
+                      return (
+                        <div key={transaction.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-500">{formatDate(transaction.date)} · {incoming ? "Debit · uang masuk" : "Kredit · uang keluar"}</p>
+                            <p className="mt-0.5 break-words text-sm font-bold text-slate-800">Title: {transaction.title?.trim() || "-"}</p>
+                            <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                              {internalKeys.map(([label, value]) => (
+                                <p key={label}><span className="font-semibold text-slate-400">{label}:</span> {value?.trim() || "-"}</p>
+                              ))}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {matches.map((match) => <span key={match.label} className="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">Cocok dengan {match.label}</span>)}
+                            </div>
+                          </div>
+                          <p className={cn("shrink-0 text-sm font-extrabold whitespace-nowrap", incoming ? "text-emerald-600" : "text-rose-600")}>
+                            {incoming ? "+ " : "− "}{formatRupiah(amount)}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="p-5 text-center text-sm text-slate-500">Belum ada nominal transaksi monitoring yang cocok dengan harga pada data Finance ini.</p>
+                )}
+              </section>
+              </div>
+            )
+          ) : (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">
+              Hasil pencarian data Finance akan tampil di sini.
+            </div>
+          )}
+        </div>
       </Modal>
 
       <Modal
